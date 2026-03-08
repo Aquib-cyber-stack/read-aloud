@@ -1,0 +1,776 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Active Recall Reader</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #12121a;
+    --surface2: #1a1a26;
+    --border: #2a2a3d;
+    --accent: #7c6dfa;
+    --accent2: #fa6d9a;
+    --text: #e8e8f0;
+    --muted: #6b6b8a;
+    --success: #6dfac0;
+    --wave: #7c6dfa33;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 40px 20px;
+    position: relative;
+    overflow-x: hidden;
+  }
+
+  /* Ambient background */
+  body::before {
+    content: '';
+    position: fixed;
+    top: -200px; left: -200px;
+    width: 600px; height: 600px;
+    background: radial-gradient(circle, #7c6dfa18 0%, transparent 70%);
+    pointer-events: none;
+    animation: drift 8s ease-in-out infinite alternate;
+  }
+  body::after {
+    content: '';
+    position: fixed;
+    bottom: -200px; right: -200px;
+    width: 600px; height: 600px;
+    background: radial-gradient(circle, #fa6d9a12 0%, transparent 70%);
+    pointer-events: none;
+    animation: drift 10s ease-in-out infinite alternate-reverse;
+  }
+  @keyframes drift {
+    from { transform: translate(0, 0); }
+    to { transform: translate(40px, 40px); }
+  }
+
+  .container {
+    width: 100%;
+    max-width: 760px;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* Header */
+  header {
+    margin-bottom: 40px;
+    text-align: center;
+  }
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 6px 14px;
+    font-size: 11px;
+    color: var(--accent);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 16px;
+  }
+  .badge::before {
+    content: '';
+    width: 6px; height: 6px;
+    background: var(--accent);
+    border-radius: 50%;
+    animation: pulse 2s ease infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(0.8); }
+  }
+  h1 {
+    font-family: 'Syne', sans-serif;
+    font-size: clamp(28px, 5vw, 44px);
+    font-weight: 800;
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+    background: linear-gradient(135deg, #e8e8f0 0%, #7c6dfa 50%, #fa6d9a 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .subtitle {
+    color: var(--muted);
+    font-size: 13px;
+    margin-top: 8px;
+    font-weight: 300;
+  }
+
+  /* Input panel */
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 24px;
+    margin-bottom: 20px;
+    transition: border-color 0.2s;
+  }
+  .panel:focus-within { border-color: var(--accent); }
+
+  .panel-label {
+    font-size: 11px;
+    color: var(--accent);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .panel-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  textarea {
+    width: 100%;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    font-size: 14px;
+    line-height: 1.8;
+    resize: vertical;
+    min-height: 180px;
+    font-weight: 300;
+  }
+  textarea::placeholder { color: var(--muted); }
+
+  /* Controls row */
+  .controls {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+  @media (max-width: 500px) {
+    .controls { grid-template-columns: 1fr 1fr; }
+  }
+
+  .control-group {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px 16px;
+  }
+  .control-group label {
+    display: block;
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+  .control-group input[type="range"] {
+    width: 100%;
+    accent-color: var(--accent);
+    cursor: pointer;
+  }
+  .control-group select {
+    width: 100%;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    cursor: pointer;
+  }
+  .control-group select option { background: #1a1a26; }
+  .val {
+    font-size: 11px;
+    color: var(--accent);
+    margin-top: 4px;
+    display: block;
+  }
+
+  /* Action buttons */
+  .actions {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+
+  .btn {
+    flex: 1;
+    padding: 14px 20px;
+    border-radius: 12px;
+    border: none;
+    cursor: pointer;
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 13px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    transition: all 0.2s;
+    position: relative;
+    overflow: hidden;
+  }
+  .btn::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: white;
+    opacity: 0;
+    transition: opacity 0.15s;
+  }
+  .btn:active::after { opacity: 0.1; }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .btn-primary {
+    background: linear-gradient(135deg, var(--accent), #5b4de0);
+    color: white;
+    box-shadow: 0 4px 24px #7c6dfa30;
+  }
+  .btn-primary:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 28px #7c6dfa50;
+  }
+  .btn-danger {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--accent2);
+  }
+  .btn-danger:hover:not(:disabled) { border-color: var(--accent2); }
+  .btn-ghost {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--muted);
+  }
+  .btn-ghost:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+  .btn-ghost.loop-on { border-color: var(--accent2); color: var(--accent2); background: #fa6d9a10; }
+
+  /* Now speaking display */
+  .now-speaking {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 24px;
+    margin-bottom: 20px;
+    min-height: 100px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+    transition: border-color 0.3s;
+  }
+  .now-speaking.active {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 1px var(--accent)20, inset 0 0 40px #7c6dfa08;
+  }
+  .now-speaking::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--accent), transparent);
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+  .now-speaking.active::before {
+    opacity: 1;
+    animation: scanline 2s linear infinite;
+  }
+  @keyframes scanline {
+    from { transform: scaleX(0); transform-origin: left; }
+    50% { transform: scaleX(1); transform-origin: left; }
+    50.01% { transform-origin: right; }
+    to { transform: scaleX(0); transform-origin: right; }
+  }
+
+  .speaking-label {
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+  .speaking-label.live {
+    color: var(--success);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .speaking-label.live::before {
+    content: '';
+    width: 6px; height: 6px;
+    background: var(--success);
+    border-radius: 50%;
+    animation: pulse 1s ease infinite;
+  }
+
+  #currentChunk {
+    font-size: 16px;
+    line-height: 1.7;
+    color: var(--text);
+    font-weight: 400;
+  }
+
+  /* Waveform */
+  .waveform {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    margin-top: 16px;
+    height: 24px;
+  }
+  .bar {
+    width: 3px;
+    background: var(--accent);
+    border-radius: 2px;
+    opacity: 0.3;
+    height: 4px;
+    transition: height 0.1s, opacity 0.1s;
+  }
+  .waveform.playing .bar {
+    opacity: 0.8;
+    animation: wave var(--dur, 0.8s) ease-in-out infinite alternate;
+  }
+  @keyframes wave {
+    from { height: 4px; }
+    to { height: var(--peak, 20px); }
+  }
+
+  /* Progress */
+  .progress-bar {
+    height: 3px;
+    background: var(--border);
+    border-radius: 2px;
+    overflow: hidden;
+    margin-bottom: 20px;
+  }
+  .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    border-radius: 2px;
+    transition: width 0.3s ease;
+    width: 0%;
+  }
+
+  /* Chunks list */
+  .chunks-panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    overflow: hidden;
+    display: none;
+  }
+  .chunks-panel.visible { display: block; }
+  .chunks-header {
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border);
+    font-size: 11px;
+    color: var(--accent);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .chunk-item {
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+    color: var(--muted);
+    line-height: 1.6;
+    cursor: pointer;
+    transition: all 0.15s;
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+  }
+  .chunk-item:last-child { border-bottom: none; }
+  .chunk-item:hover { background: var(--surface2); color: var(--text); }
+  .chunk-item.done { color: var(--success); opacity: 0.6; }
+  .chunk-item.current {
+    background: #7c6dfa10;
+    color: var(--text);
+    border-left: 3px solid var(--accent);
+  }
+  .chunk-num {
+    font-size: 10px;
+    color: var(--accent);
+    min-width: 24px;
+    padding-top: 2px;
+  }
+  .chunk-item.done .chunk-num { color: var(--success); }
+
+  /* Toast */
+  .toast {
+    position: fixed;
+    bottom: 30px;
+    left: 50%;
+    transform: translateX(-50%) translateY(80px);
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 20px;
+    font-size: 12px;
+    color: var(--text);
+    transition: transform 0.3s ease;
+    z-index: 100;
+  }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <div class="badge">AI Active Recall</div>
+    <h1>Read It Back</h1>
+    <p class="subtitle">Paste your notes — AI will read them out loud for deep retention</p>
+  </header>
+
+  <div class="panel">
+    <div class="panel-label">Your Notes</div>
+    <textarea id="noteInput" placeholder="Paste your notes, definitions, formulas, or anything you want to memorize...
+
+You can include:
+• Bullet points  
+• Multi-paragraph content  
+• Key terms and explanations
+• Questions & answers"></textarea>
+  </div>
+
+  <div class="controls">
+    <div class="control-group">
+      <label>Speed</label>
+      <input type="range" id="rateSlider" min="0.5" max="2" step="0.1" value="0.9">
+      <span class="val" id="rateVal">0.9×</span>
+    </div>
+    <div class="control-group">
+      <label>Pitch</label>
+      <input type="range" id="pitchSlider" min="0.5" max="1.5" step="0.1" value="1.0">
+      <span class="val" id="pitchVal">1.0</span>
+    </div>
+    <div class="control-group">
+      <label>Voice</label>
+      <select id="voiceSelect"><option>Loading...</option></select>
+    </div>
+  </div>
+
+  <div class="actions">
+    <button class="btn btn-primary" id="playBtn" onclick="startReading()">▶ Read Aloud</button>
+    <button class="btn btn-ghost" id="pauseBtn" onclick="togglePause()" disabled>⏸ Pause</button>
+    <button class="btn btn-danger" id="stopBtn" onclick="stopReading()" disabled>■ Stop</button>
+    <button class="btn btn-ghost" id="loopBtn" onclick="toggleLoop()" title="Loop">↺ Loop</button>
+  </div>
+
+  <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+
+  <div class="now-speaking" id="nowSpeaking">
+    <div class="speaking-label" id="speakingLabel">Ready to read</div>
+    <div id="currentChunk" style="color:var(--muted); font-size:13px;">Your content will appear here as it's being read...</div>
+    <div class="waveform" id="waveform"></div>
+  </div>
+
+  <div class="chunks-panel" id="chunksPanel">
+    <div class="chunks-header">
+      <span>Content Segments</span>
+      <span id="chunkCount" style="color:var(--muted)"></span>
+    </div>
+    <div id="chunksList"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+let chunks = [];
+let currentIdx = 0;
+let synth = window.speechSynthesis;
+let voices = [];
+let isPaused = false;
+let isPlaying = false;
+let currentUtterance = null;
+let loopEnabled = false;
+let loopCount = 0;
+
+// Build waveform bars
+const waveform = document.getElementById('waveform');
+for (let i = 0; i < 28; i++) {
+  const bar = document.createElement('div');
+  bar.className = 'bar';
+  const peak = Math.floor(Math.random() * 16) + 8;
+  const dur = (Math.random() * 0.4 + 0.5).toFixed(2);
+  bar.style.setProperty('--peak', peak + 'px');
+  bar.style.setProperty('--dur', dur + 's');
+  bar.style.animationDelay = (i * 0.05) + 's';
+  waveform.appendChild(bar);
+}
+
+// Load voices
+function loadVoices() {
+  voices = synth.getVoices().filter(v => v.lang.startsWith('en'));
+  const sel = document.getElementById('voiceSelect');
+  sel.innerHTML = '';
+  if (!voices.length) {
+    setTimeout(loadVoices, 300);
+    return;
+  }
+  voices.forEach((v, i) => {
+    const opt = document.createElement('option');
+    opt.value = i;
+    opt.textContent = v.name.replace('Google ', '').replace(' English', '');
+    sel.appendChild(opt);
+  });
+  // Prefer a natural-sounding voice
+  const pref = voices.findIndex(v => v.name.includes('Samantha') || v.name.includes('Daniel') || v.name.includes('Google US'));
+  if (pref >= 0) sel.value = pref;
+}
+speechSynthesis.onvoiceschanged = loadVoices;
+loadVoices();
+
+// Sliders
+document.getElementById('rateSlider').oninput = function() {
+  document.getElementById('rateVal').textContent = this.value + '×';
+};
+document.getElementById('pitchSlider').oninput = function() {
+  document.getElementById('pitchVal').textContent = parseFloat(this.value).toFixed(1);
+};
+
+// Split text into smart chunks
+function splitIntoChunks(text) {
+  // Split on newlines, bullet points, sentence endings
+  const raw = text.split(/\n+/).map(l => l.trim()).filter(Boolean);
+  const result = [];
+  for (const line of raw) {
+    if (line.length < 120) {
+      result.push(line);
+    } else {
+      // Split long lines on sentence boundaries
+      const sentences = line.match(/[^.!?]+[.!?]+/g) || [line];
+      result.push(...sentences.map(s => s.trim()).filter(Boolean));
+    }
+  }
+  return result;
+}
+
+async function startReading() {
+  const text = document.getElementById('noteInput').value.trim();
+  if (!text) { showToast('Paste some notes first!'); return; }
+
+  stopReading();
+  chunks = splitIntoChunks(text);
+  if (!chunks.length) return;
+
+  currentIdx = 0;
+  isPaused = false;
+  isPlaying = true;
+  loopCount = 0;
+
+  // Render chunk list
+  renderChunks();
+
+  document.getElementById('playBtn').disabled = true;
+  document.getElementById('pauseBtn').disabled = false;
+  document.getElementById('stopBtn').disabled = false;
+
+  speakChunk(currentIdx);
+}
+
+function renderChunks() {
+  const panel = document.getElementById('chunksPanel');
+  const list = document.getElementById('chunksList');
+  panel.classList.add('visible');
+  document.getElementById('chunkCount').textContent = chunks.length + ' segments';
+  list.innerHTML = chunks.map((c, i) =>
+    `<div class="chunk-item" id="ci-${i}" onclick="jumpTo(${i})">
+      <span class="chunk-num">${String(i+1).padStart(2,'0')}</span>
+      <span>${c}</span>
+    </div>`
+  ).join('');
+}
+
+function jumpTo(idx) {
+  if (!isPlaying) return;
+  if (currentUtterance) synth.cancel();
+  currentIdx = idx;
+  speakChunk(idx);
+}
+
+function speakChunk(idx) {
+  if (idx >= chunks.length) {
+    onComplete();
+    return;
+  }
+
+  // Update UI
+  updateChunkUI(idx);
+  updateProgress(idx);
+
+  const text = chunks[idx];
+  const utterance = new SpeechSynthesisUtterance(text);
+  currentUtterance = utterance;
+
+  const rate = parseFloat(document.getElementById('rateSlider').value);
+  const pitch = parseFloat(document.getElementById('pitchSlider').value);
+  const voiceIdx = parseInt(document.getElementById('voiceSelect').value);
+  if (voices[voiceIdx]) utterance.voice = voices[voiceIdx];
+  utterance.rate = rate;
+  utterance.pitch = pitch;
+
+  utterance.onstart = () => {
+    document.getElementById('nowSpeaking').classList.add('active');
+    document.getElementById('waveform').classList.add('playing');
+    document.getElementById('speakingLabel').className = 'speaking-label live';
+    document.getElementById('speakingLabel').textContent = 'Now Reading';
+    document.getElementById('currentChunk').style.color = '';
+    document.getElementById('currentChunk').textContent = text;
+  };
+
+  utterance.onend = () => {
+    if (!isPaused && isPlaying) {
+      currentIdx++;
+      speakChunk(currentIdx);
+    }
+  };
+
+  utterance.onerror = (e) => {
+    if (e.error !== 'interrupted') showToast('Speech error: ' + e.error);
+  };
+
+  synth.speak(utterance);
+}
+
+function updateChunkUI(idx) {
+  // Mark previous as done
+  for (let i = 0; i < idx; i++) {
+    const el = document.getElementById('ci-' + i);
+    if (el) { el.classList.remove('current'); el.classList.add('done'); }
+  }
+  const curr = document.getElementById('ci-' + idx);
+  if (curr) {
+    curr.classList.add('current');
+    curr.classList.remove('done');
+    curr.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+}
+
+function updateProgress(idx) {
+  const pct = chunks.length > 1 ? (idx / (chunks.length - 1)) * 100 : 100;
+  document.getElementById('progressFill').style.width = pct + '%';
+}
+
+function togglePause() {
+  if (!isPlaying) return;
+  if (isPaused) {
+    isPaused = false;
+    synth.resume();
+    document.getElementById('pauseBtn').textContent = '⏸ Pause';
+    document.getElementById('waveform').classList.add('playing');
+    document.getElementById('speakingLabel').className = 'speaking-label live';
+    document.getElementById('speakingLabel').textContent = 'Now Reading';
+  } else {
+    isPaused = true;
+    synth.pause();
+    document.getElementById('pauseBtn').textContent = '▶ Resume';
+    document.getElementById('waveform').classList.remove('playing');
+    document.getElementById('speakingLabel').className = 'speaking-label';
+    document.getElementById('speakingLabel').textContent = 'Paused';
+  }
+}
+
+function stopReading() {
+  isPlaying = false;
+  isPaused = false;
+  synth.cancel();
+  currentUtterance = null;
+  document.getElementById('nowSpeaking').classList.remove('active');
+  document.getElementById('waveform').classList.remove('playing');
+  document.getElementById('speakingLabel').className = 'speaking-label';
+  document.getElementById('speakingLabel').textContent = 'Ready to read';
+  document.getElementById('currentChunk').style.color = 'var(--muted)';
+  document.getElementById('currentChunk').textContent = 'Your content will appear here as it\'s being read...';
+  document.getElementById('playBtn').disabled = false;
+  document.getElementById('pauseBtn').disabled = true;
+  document.getElementById('pauseBtn').textContent = '⏸ Pause';
+  document.getElementById('stopBtn').disabled = true;
+  document.getElementById('progressFill').style.width = '0%';
+}
+
+function toggleLoop() {
+  loopEnabled = !loopEnabled;
+  const btn = document.getElementById('loopBtn');
+  if (loopEnabled) {
+    btn.classList.add('loop-on');
+    btn.textContent = '↺ Loop ON';
+    showToast('Loop enabled — will repeat forever 🔁');
+  } else {
+    btn.classList.remove('loop-on');
+    btn.textContent = '↺ Loop';
+    showToast('Loop disabled');
+  }
+}
+
+function onComplete() {
+  loopCount++;
+
+  if (loopEnabled) {
+    // Reset chunks UI and restart
+    currentIdx = 0;
+    chunks.forEach((_, i) => {
+      const el = document.getElementById('ci-' + i);
+      if (el) { el.classList.remove('done', 'current'); }
+    });
+    document.getElementById('progressFill').style.width = '0%';
+    document.getElementById('speakingLabel').className = 'speaking-label live';
+    document.getElementById('speakingLabel').textContent = `Loop ${loopCount + 1}`;
+
+    // Small pause between loops for clarity
+    setTimeout(() => {
+      if (isPlaying) speakChunk(0);
+    }, 1000);
+    return;
+  }
+
+  // Normal end
+  isPlaying = false;
+  document.getElementById('nowSpeaking').classList.remove('active');
+  document.getElementById('waveform').classList.remove('playing');
+  document.getElementById('speakingLabel').className = 'speaking-label';
+  document.getElementById('speakingLabel').textContent = '✓ Complete';
+  document.getElementById('currentChunk').style.color = 'var(--success)';
+  document.getElementById('currentChunk').textContent = 'All done! Review the segments above to reinforce your memory.';
+  document.getElementById('playBtn').disabled = false;
+  document.getElementById('pauseBtn').disabled = true;
+  document.getElementById('stopBtn').disabled = true;
+  document.getElementById('progressFill').style.width = '100%';
+
+  chunks.forEach((_, i) => {
+    const el = document.getElementById('ci-' + i);
+    if (el) { el.classList.add('done'); el.classList.remove('current'); }
+  });
+  showToast('Reading complete! 🎉');
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+</script>
+</body>
+</html>
